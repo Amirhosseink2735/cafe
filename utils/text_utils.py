@@ -46,3 +46,25 @@ def normalize_time(value: str) -> str:
     if not _TIME_PATTERN.match(normalized):
         raise ValueError("ساعت باید به صورت HH:MM باشد؛ مثلاً 08:00.")
     return normalized
+
+
+def normalize_jalali_date(value: str) -> str:
+    from utils.jalali_helper import JalaliHelper
+
+    normalized = to_english_digits(value).replace("-", "/")
+    parts = [part for part in normalized.split("/") if part]
+    if len(parts) != 3:
+        raise ValueError("تاریخ باید به صورت YYYY/MM/DD باشد.")
+    try:
+        parsed = JalaliHelper.parse_date("/".join(parts))
+    except ValueError as exc:
+        raise ValueError("تاریخ شمسی نامعتبر است.") from exc
+    return parsed.strftime("%Y/%m/%d")
+
+
+def time_to_minutes(value: str) -> int:
+    parts = to_english_digits(value).split(":")
+    hours = int(parts[0])
+    minutes = int(parts[1]) if len(parts) > 1 else 0
+    seconds = int(parts[2]) if len(parts) > 2 else 0
+    return hours * 60 + minutes + (1 if seconds >= 30 else 0)

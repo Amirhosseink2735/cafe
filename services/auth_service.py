@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import sqlite3
-from typing import Optional
 
 from database.db_manager import DatabaseManager
 
