@@ -1,11 +1,11 @@
 # 🚀 Project Roadmap & TODO List (Vibe Coding Guide)
 
 ## فاز ۱: راه‌اندازی پایه و ساختار پایگاه داده (Setup & Core DB)
-- [ ] ساختار پوشه‌بندی پروژه (`app/`, `gui/`, `database/`, `services/`, `utils/`)
-- [ ] راه‌اندازی محیط مجازی و نصب وابستگی‌ها (`customtkinter`, `jdatetime`, `pillow`)
-- [ ] ساخت ماژول کمکی تقویم شمسی (`utils/jalali_helper.py`) برای گرفتن زمان فعلی و تبدیل‌ها
-- [ ] ایجاد فایل اتصال دیتابیس و تعریف Schema جداول در SQLite (`database/db_manager.py`)
-- [ ] نوشتن تست‌های اولیه‌ی ساخت جداول و اطمینان از ذخیره متون فارسی
+- [x] ساختار پوشه‌بندی پروژه (`app/`, `gui/`, `database/`, `services/`, `utils/`)
+- [x] راه‌اندازی محیط مجازی و نصب وابستگی‌ها (`customtkinter`, `jdatetime`, `pillow`)
+- [x] ساخت ماژول کمکی تقویم شمسی (`utils/jalali_helper.py`) برای گرفتن زمان فعلی و تبدیل‌ها
+- [x] ایجاد فایل اتصال دیتابیس و تعریف Schema جداول در SQLite (`database/db_manager.py`)
+- [x] نوشتن تست‌های اولیه‌ی ساخت جداول و اطمینان از ذخیره متون فارسی
 
 ---
 
