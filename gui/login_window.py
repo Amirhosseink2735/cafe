@@ -17,11 +17,13 @@ class LoginWindow(ctk.CTk):
         self.db = db
         self.auth = AuthService(db)
         self.authenticated = False
+        self._busy = False
 
         self.title("ورود مدیر | کافه")
         self.resizable(False, False)
         center_window(self, 520, 640)
         self.configure(fg_color=COLORS["cream"])
+        self.protocol("WM_DELETE_WINDOW", lambda: close_window(self))
 
         shell = ctk.CTkFrame(self, fg_color="transparent")
         shell.pack(expand=True, fill="both", padx=36, pady=32)
@@ -102,9 +104,12 @@ class LoginWindow(ctk.CTk):
             text_color=COLORS["espresso"],
         ).pack(pady=10)
 
-        self.after(120, self.password_entry.focus_set)
+        self._focus_job = self.after(120, self.password_entry.focus_set)
 
     def _login(self) -> None:
+        if self._busy:
+            return
+        self._busy = True
         password = self.password_entry.get()
         if self.auth.verify_password(password):
             self.authenticated = True
@@ -113,3 +118,4 @@ class LoginWindow(ctk.CTk):
         self.error_label.configure(text="رمز عبور نادرست است.")
         self.password_entry.delete(0, "end")
         self.password_entry.focus_set()
+        self._busy = False

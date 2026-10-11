@@ -84,12 +84,18 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     )
     """,
     """
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_attendances_employee_date
-    ON attendances(employee_id, jalali_date)
+    CREATE TABLE IF NOT EXISTS employment_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER NOT NULL,
+        is_active INTEGER NOT NULL,
+        jalali_date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (employee_id) REFERENCES employees(id)
+    )
     """,
 )
 
-REQUIRED_TABLES = (
+CORE_TABLES = (
     "employees",
     "shifts",
     "attendances",
@@ -97,6 +103,7 @@ REQUIRED_TABLES = (
     "adjustments",
     "settings",
 )
+REQUIRED_TABLES = CORE_TABLES + ("employment_events",)
 
 
 def get_default_db_path() -> Path:
@@ -158,8 +165,12 @@ class DatabaseManager:
                     created_at,
                 ),
             )
+            employee_id = int(cursor.lastrowid or 0)
+            self._insert_employment_event(
+                connection, employee_id, is_active, created_at[:10], created_at
+            )
             connection.commit()
-            return int(cursor.lastrowid or 0)
+            return employee_id
 
     def update_employee(
         self,
@@ -180,13 +191,52 @@ class DatabaseManager:
             )
             connection.commit()
 
-    def set_employee_active(self, employee_id: int, is_active: bool) -> None:
+    def set_employee_active(
+        self,
+        employee_id: int,
+        is_active: bool,
+        jalali_date: Optional[str] = None,
+    ) -> None:
+        when = jalali_date or JalaliHelper.today_str()
+        stamped = JalaliHelper.now_datetime_str()
         with self.connect() as connection:
             connection.execute(
                 "UPDATE employees SET is_active = ? WHERE id = ?",
                 (1 if is_active else 0, employee_id),
             )
+            self._insert_employment_event(
+                connection, employee_id, is_active, when, stamped
+            )
             connection.commit()
+
+    def list_employment_events(self, employee_id: Optional[int] = None) -> list[sqlite3.Row]:
+        query = """
+            SELECT employee_id, is_active, jalali_date, created_at
+            FROM employment_events
+        """
+        params: list = []
+        if employee_id is not None:
+            query += " WHERE employee_id = ?"
+            params.append(employee_id)
+        query += " ORDER BY jalali_date, id"
+        with self.connect() as connection:
+            return connection.execute(query, params).fetchall()
+
+    @staticmethod
+    def _insert_employment_event(
+        connection: sqlite3.Connection,
+        employee_id: int,
+        is_active: bool,
+        jalali_date: str,
+        created_at: str,
+    ) -> None:
+        connection.execute(
+            """
+            INSERT INTO employment_events (employee_id, is_active, jalali_date, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (employee_id, 1 if is_active else 0, jalali_date, created_at),
+        )
 
     def get_employee_by_id(self, employee_id: int) -> Optional[sqlite3.Row]:
         with self.connect() as connection:
@@ -673,15 +723,36 @@ class DatabaseManager:
             connection.execute("ALTER TABLE leave_requests ADD COLUMN admin_comment TEXT")
         if "reviewed_at" not in columns:
             connection.execute("ALTER TABLE leave_requests ADD COLUMN reviewed_at TEXT")
-        try:
+        att_cols = self._column_names(connection, "attendances")
+        if {"id", "employee_id", "jalali_date"}.issubset(att_cols):
+            connection.execute(
+                """
+                DELETE FROM attendances
+                WHERE id NOT IN (
+                    SELECT MAX(id) FROM attendances GROUP BY employee_id, jalali_date
+                )
+                """
+            )
             connection.execute(
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_attendances_employee_date
                 ON attendances(employee_id, jalali_date)
                 """
             )
-        except sqlite3.IntegrityError:
-            pass
+        emp_cols = self._column_names(connection, "employees")
+        if {"id", "is_active", "created_at"}.issubset(emp_cols):
+            connection.execute(
+                """
+                INSERT INTO employment_events (employee_id, is_active, jalali_date, created_at)
+                SELECT
+                    id,
+                    is_active,
+                    substr(created_at, 1, 10),
+                    created_at
+                FROM employees
+                WHERE id NOT IN (SELECT DISTINCT employee_id FROM employment_events)
+                """
+            )
 
     def _seed_default_settings(self, connection: sqlite3.Connection) -> None:
         from services.auth_service import (

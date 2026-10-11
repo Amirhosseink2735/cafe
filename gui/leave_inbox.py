@@ -28,6 +28,7 @@ class LeaveDecisionDialog(ctk.CTkToplevel):
         self.resizable(False, False)
         self.transient(master)
         center_window(self, 480, 340)
+        self.protocol("WM_DELETE_WINDOW", lambda: close_window(self))
         self.grab_set()
 
         card = ctk.CTkFrame(self, corner_radius=20, fg_color=COLORS["card"])
@@ -51,7 +52,7 @@ class LeaveDecisionDialog(ctk.CTkToplevel):
             height=42,
             command=self._confirm,
         ).pack(fill="x", padx=20, pady=(8, 18))
-        self.after(80, self.box.focus_set)
+        self._focus_job = self.after(80, self.box.focus_set)
 
     def _confirm(self) -> None:
         text = self.box.get("1.0", "end").strip()

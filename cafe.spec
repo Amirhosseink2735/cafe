@@ -5,16 +5,18 @@ from pathlib import Path
 block_cipher = None
 root = Path(SPECPATH)
 icon_file = root / "assets" / "icon.ico"
+datas = [
+    (str(root / "gui" / "themes" / "cafe.json"), "gui/themes"),
+    (str(root / "assets" / "fonts"), "assets/fonts"),
+]
+if icon_file.exists():
+    datas.append((str(icon_file), "assets"))
 
 a = Analysis(
     [str(root / "app" / "main.py")],
     pathex=[str(root)],
     binaries=[],
-    datas=[
-        (str(root / "gui" / "themes" / "cafe.json"), "gui/themes"),
-        (str(root / "assets" / "fonts"), "assets/fonts"),
-        (str(icon_file), "assets"),
-    ],
+    datas=datas,
     hiddenimports=[
         "customtkinter",
         "jdatetime",

@@ -21,6 +21,7 @@ class LeaveRequestDialog(ctk.CTkToplevel):
         self.resizable(False, False)
         self.transient(master)
         center_window(self, 560, 640)
+        self.protocol("WM_DELETE_WINDOW", lambda: close_window(self))
         self.grab_set()
 
         card = ctk.CTkFrame(self, corner_radius=22, fg_color=COLORS["card"])

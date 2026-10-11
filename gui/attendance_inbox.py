@@ -25,6 +25,7 @@ class AttendanceInboxFrame(ctk.CTkFrame):
         self.staff = staff
         self.on_changed = on_changed
         self._employees_by_label: dict[str, int] = {}
+        self._saving = False
 
         heading = ctk.CTkFrame(self, fg_color="transparent")
         heading.pack(fill="x", pady=(0, 10))
@@ -206,6 +207,15 @@ class AttendanceInboxFrame(ctk.CTkFrame):
         self.refresh()
 
     def _save_manual(self) -> None:
+        if self._saving:
+            return
+        self._saving = True
+        try:
+            self._do_save_manual()
+        finally:
+            self._saving = False
+
+    def _do_save_manual(self) -> None:
         label = self.employee_combo.get()
         employee_id = self._employees_by_label.get(label)
         if employee_id is None:

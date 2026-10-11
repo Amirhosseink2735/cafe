@@ -12,6 +12,18 @@ from utils.jalali_helper import JalaliHelper
 from services.work_time import completed_day_minutes, unique_latest_rows
 from utils.text_utils import normalize_jalali_date, parse_amount, shift_length_minutes
 
+
+def was_active_on(day: str, events: list[tuple[str, bool]], hire_date: str) -> bool:
+    if hire_date and day < hire_date:
+        return False
+    state = True
+    for event_date, active in events:
+        if event_date <= day:
+            state = active
+        else:
+            break
+    return state
+
 TYPE_BONUS = "bonus"
 TYPE_DEDUCTION = "deduction"
 TYPE_LABELS = {TYPE_BONUS: "پاداش", TYPE_DEDUCTION: "کسورات"}
@@ -131,6 +143,12 @@ class PayrollService:
             days = set(JalaliHelper.iter_dates(covered_start, covered_end))
             leave_days.setdefault(row["employee_id"], set()).update(days)
 
+        events_by_employee: dict[int, list[tuple[str, bool]]] = {}
+        for row in self.db.list_employment_events():
+            events_by_employee.setdefault(row["employee_id"], []).append(
+                (row["jalali_date"], bool(row["is_active"]))
+            )
+
         month_days = list(JalaliHelper.iter_dates(start, until))
         summaries: list[PayrollSummary] = []
         for employee in employees:
@@ -165,13 +183,14 @@ class PayrollService:
 
             approved = leave_days.get(employee.id, set())
             hire_date = (employee.created_at or "")[:10]
+            history = events_by_employee.get(employee.id, [])
             absence = 0
-            if employee.is_active and shift_len:
+            if shift_len:
                 absence = sum(
                     1
                     for day in month_days
                     if day != today
-                    and (not hire_date or day >= hire_date)
+                    and was_active_on(day, history, hire_date)
                     and day not in worked_dates
                     and day not in approved
                 )

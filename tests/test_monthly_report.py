@@ -110,6 +110,9 @@ def test_excel_matches_on_screen_filters(report_setup, tmp_path: Path) -> None:
     workbook = load_workbook(path)
     assert workbook.sheetnames == ["خلاصه ماهانه", "جزئیات تردد", "ترددهای ناقص"]
     summary = workbook["خلاصه ماهانه"]
+    assert "TblSummary" in summary.tables
+    assert "TblDetails" in workbook["جزئیات تردد"].tables
+    assert "TblIncomplete" in workbook["ترددهای ناقص"].tables
     assert summary.sheet_view.rightToLeft is True
     assert summary.freeze_panes == "A6"
     codes = [cell.value for cell in summary["A"] if cell.value not in (None, "کد پرسنلی")]
@@ -162,3 +165,16 @@ def test_backup_and_restore_roundtrip(report_setup, tmp_path: Path) -> None:
         connection.commit()
     with pytest.raises(ValueError, match="برنامه"):
         backups.restore_from(stub)
+
+
+def test_excel_export_to_path_with_spaces(report_setup, tmp_path: Path) -> None:
+    reports, _payroll, _staff, employee_id, _inactive_id, _db = report_setup
+    today = JalaliHelper.today()
+    report = reports.build_month_report(today.year, today.month, employee_id=employee_id)
+    folder = tmp_path / "vibe coding reports"
+    folder.mkdir()
+    path = folder / "ماهانه staff.xlsx"
+    saved = reports.export_excel(report, path)
+    assert Path(saved).exists()
+    workbook = load_workbook(saved)
+    assert "TblSummary" in workbook["خلاصه ماهانه"].tables

@@ -91,7 +91,11 @@ def theme_button_text(db) -> str:
 def close_window(window) -> None:
     """Close a window without cancelling other Tk after() jobs in the app."""
     try:
-        for job_attr in ("_clock_job", "_status_job"):
+        window.grab_release()
+    except Exception:
+        pass
+    try:
+        for job_attr in ("_clock_job", "_status_job", "_focus_job"):
             job = getattr(window, job_attr, None)
             if job:
                 window.after_cancel(job)

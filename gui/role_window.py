@@ -20,6 +20,7 @@ class RoleWindow(ctk.CTk):
         self.configure(fg_color=COLORS["cream"])
         self.resizable(False, False)
         center_window(self, 720, 540)
+        self.protocol("WM_DELETE_WINDOW", lambda: close_window(self))
 
         card = ctk.CTkFrame(self, corner_radius=28, fg_color=COLORS["card"])
         card.pack(expand=True, fill="both", padx=36, pady=36)

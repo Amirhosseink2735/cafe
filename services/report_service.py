@@ -243,7 +243,7 @@ class ReportService:
                 ]
             )
             self._style_data_row(sheet, index, len(headers))
-        self._finalize_sheet(sheet, start_row, headers, max(len(report.employees), 1))
+        self._finalize_sheet(sheet, start_row, headers, max(len(report.employees), 1), "TblSummary")
 
     def _write_details_sheet(self, sheet, report: MonthlyAttendanceReport) -> None:
         sheet.sheet_view.rightToLeft = True
@@ -289,7 +289,7 @@ class ReportService:
                 self._style_data_row(sheet, row_index, len(headers))
                 row_index += 1
                 count += 1
-        self._finalize_sheet(sheet, start_row, headers, max(count, 1))
+        self._finalize_sheet(sheet, start_row, headers, max(count, 1), "TblDetails")
 
     def _write_incomplete_sheet(self, sheet, report: MonthlyAttendanceReport) -> None:
         sheet.sheet_view.rightToLeft = True
@@ -325,7 +325,7 @@ class ReportService:
                 self._style_data_row(sheet, row_index, len(headers))
                 row_index += 1
                 count += 1
-        self._finalize_sheet(sheet, start_row, headers, max(count, 1))
+        self._finalize_sheet(sheet, start_row, headers, max(count, 1), "TblIncomplete")
 
     def _write_banner(self, sheet, report: MonthlyAttendanceReport, title: str) -> None:
         sheet.merge_cells("A1:I1")
@@ -375,13 +375,15 @@ class ReportService:
             cell.alignment = align
             cell.border = thin
 
-    def _finalize_sheet(self, sheet, header_row: int, headers: list[str], data_rows: int) -> None:
+    def _finalize_sheet(
+        self, sheet, header_row: int, headers: list[str], data_rows: int, table_name: str
+    ) -> None:
         last_row = header_row + data_rows
         last_col = get_column_letter(len(headers))
         ref = f"A{header_row}:{last_col}{last_row}"
         sheet.auto_filter.ref = ref
         sheet.freeze_panes = f"A{header_row + 1}"
-        table = Table(displayName=f"ReportTable{abs(hash(sheet.title)) % 100000}", ref=ref)
+        table = Table(displayName=table_name, ref=ref)
         table.tableStyleInfo = TableStyleInfo(name="TableStyleMedium9", showRowStripes=True)
         try:
             sheet.add_table(table)

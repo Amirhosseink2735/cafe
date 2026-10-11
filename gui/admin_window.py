@@ -49,6 +49,7 @@ class AdminWindow(ctk.CTk):
         self.refresh_list()
         self._sync_leave_badge()
         self._sync_attendance_badge()
+        self.protocol("WM_DELETE_WINDOW", self._logout)
 
     def _build_header(self) -> None:
         header = ctk.CTkFrame(self, height=88, corner_radius=0, fg_color=COLORS["header"])

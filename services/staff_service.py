@@ -97,11 +97,11 @@ class StaffService:
         )
         return employee_id
 
-    def deactivate_employee(self, employee_id: int) -> None:
-        self.db.set_employee_active(employee_id, False)
+    def deactivate_employee(self, employee_id: int, jalali_date: str | None = None) -> None:
+        self.db.set_employee_active(employee_id, False, jalali_date=jalali_date)
 
-    def activate_employee(self, employee_id: int) -> None:
-        self.db.set_employee_active(employee_id, True)
+    def activate_employee(self, employee_id: int, jalali_date: str | None = None) -> None:
+        self.db.set_employee_active(employee_id, True, jalali_date=jalali_date)
 
     def save_shift(
         self,

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from database.db_manager import DatabaseManager
-from services.auth_service import AuthService, hash_password
+from services.auth_service import AuthService, PBKDF2_SCHEME, _legacy_sha256
 from services.staff_service import StaffService
 
 
@@ -27,7 +27,8 @@ def auth_service(tmp_path: Path) -> AuthService:
 
 def test_default_admin_password(auth_service: AuthService) -> None:
     stored = auth_service.db.get_setting("admin_password")
-    assert stored == hash_password("admin")
+    assert stored is not None
+    assert stored.startswith(f"{PBKDF2_SCHEME}$")
     assert stored != "admin"
     assert auth_service.verify_password("admin")
     assert not auth_service.verify_password("wrong")
@@ -39,7 +40,21 @@ def test_change_admin_password(auth_service: AuthService) -> None:
     assert auth_service.verify_password("  cafe1234  ")
     assert not auth_service.verify_password("admin")
     stored = auth_service.db.get_setting("admin_password")
-    assert stored == hash_password("cafe1234")
+    assert stored is not None and stored.startswith(f"{PBKDF2_SCHEME}$")
+    assert stored != "cafe1234"
+
+
+def test_legacy_sha256_password_upgrades_on_login(tmp_path: Path) -> None:
+    db = DatabaseManager(tmp_path / "cafe.db")
+    db.initialize()
+    db.set_setting("admin_password", _legacy_sha256("admin"))
+    auth = AuthService(db)
+    assert auth.verify_password("admin")
+    stored = db.get_setting("admin_password")
+    assert stored is not None
+    assert stored.startswith(f"{PBKDF2_SCHEME}$")
+    assert stored != _legacy_sha256("admin")
+    assert auth.verify_password("admin")
 
 
 def test_create_employee_and_shift(staff_service: StaffService) -> None:

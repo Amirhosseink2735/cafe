@@ -17,6 +17,7 @@ class ChangePasswordDialog(ctk.CTkToplevel):
         self.transient(master)
         self.configure(fg_color=COLORS["cream"])
         center_window(self, 440, 430)
+        self.protocol("WM_DELETE_WINDOW", lambda: close_window(self))
         self.grab_set()
 
         card = ctk.CTkFrame(self, corner_radius=22, fg_color=COLORS["card"])
@@ -55,7 +56,7 @@ class ChangePasswordDialog(ctk.CTkToplevel):
             command=self._save,
         ).pack(fill="x", pady=(6, 16))
 
-        self.after(50, self.current_entry.focus_set)
+        self._focus_job = self.after(50, self.current_entry.focus_set)
 
     def _labeled_entry(self, parent, label: str) -> ctk.CTkEntry:
         ctk.CTkLabel(

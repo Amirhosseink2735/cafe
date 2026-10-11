@@ -24,6 +24,8 @@ class ReportFrame(ctk.CTkFrame):
         self.staff = staff
         self._employees_by_label: dict[str, Optional[int]] = {ALL_STAFF: None}
         self._current: Optional[MonthlyAttendanceReport] = None
+        self._refreshing = False
+        self._exporting = False
 
         today = JalaliHelper.today()
         years = [str(year) for year in range(today.year - 5, today.year + 2)]
@@ -42,15 +44,11 @@ class ReportFrame(ctk.CTkFrame):
         filters = ctk.CTkFrame(self, fg_color=COLORS["card"], corner_radius=16)
         filters.pack(fill="x", pady=(0, 10))
 
-        self.year_menu = ctk.CTkOptionMenu(
-            filters, values=years, width=110, font=app_font(13), command=lambda _v: self.refresh()
-        )
+        self.year_menu = ctk.CTkOptionMenu(filters, values=years, width=110, font=app_font(13))
         self.year_menu.set(str(today.year))
         self.year_menu.pack(side="right", padx=(8, 14), pady=12)
 
-        self.month_menu = ctk.CTkOptionMenu(
-            filters, values=months, width=180, font=app_font(13), command=lambda _v: self.refresh()
-        )
+        self.month_menu = ctk.CTkOptionMenu(filters, values=months, width=180, font=app_font(13))
         self.month_menu.set(months[today.month - 1])
         self.month_menu.pack(side="right", padx=8, pady=12)
 
@@ -70,7 +68,6 @@ class ReportFrame(ctk.CTkFrame):
             values=[ALL_STAFF],
             width=220,
             font=app_font(13),
-            command=lambda _v: self.refresh(),
         )
         self.staff_menu.set(ALL_STAFF)
         self.staff_menu.pack(side="right", padx=8, pady=12)
@@ -95,6 +92,9 @@ class ReportFrame(ctk.CTkFrame):
 
         self.list_frame = ctk.CTkScrollableFrame(self, corner_radius=18, fg_color=COLORS["card"])
         self.list_frame.pack(expand=True, fill="both")
+        self.year_menu.configure(command=lambda _v: self.refresh())
+        self.month_menu.configure(command=lambda _v: self.refresh())
+        self.staff_menu.configure(command=lambda _v: self.refresh())
         self.refresh()
 
     def _selected_year_month(self) -> tuple[int, int]:
@@ -103,6 +103,15 @@ class ReportFrame(ctk.CTkFrame):
         return year, month
 
     def refresh(self) -> None:
+        if not getattr(self, "list_frame", None) or self._refreshing:
+            return
+        self._refreshing = True
+        try:
+            self._refresh_body()
+        finally:
+            self._refreshing = False
+
+    def _refresh_body(self) -> None:
         employees = self.staff.list_employees(include_inactive=True)
         self._employees_by_label = {ALL_STAFF: None}
         for emp in employees:
@@ -207,6 +216,15 @@ class ReportFrame(ctk.CTkFrame):
         ctk.CTkFrame(card, height=8, fg_color="transparent").pack()
 
     def _export_excel(self) -> None:
+        if self._exporting:
+            return
+        self._exporting = True
+        try:
+            self._do_export_excel()
+        finally:
+            self._exporting = False
+
+    def _do_export_excel(self) -> None:
         if self._current is None:
             self.refresh()
         report = self._current

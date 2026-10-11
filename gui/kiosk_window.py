@@ -26,6 +26,7 @@ class KioskWindow(ctk.CTk):
         self.selected_employee_id: Optional[int] = None
         self._employees: dict[int, EmployeeRecord] = {}
         self._clock_job: Optional[str] = None
+        self._punch_busy = False
 
         self.title("کیوسک پرسنل کافه")
         self.configure(fg_color=COLORS["cream"])
@@ -274,13 +275,16 @@ class KioskWindow(ctk.CTk):
 
     def _check_in(self) -> None:
         employee = self._require_employee()
-        if employee is None:
+        if employee is None or self._punch_busy:
             return
+        self._punch_busy = True
         try:
             status = self.attendance.check_in(employee.id)
         except ValueError as exc:
             self.feedback_label.configure(text=str(exc), text_color=COLORS["danger"])
             return
+        finally:
+            self._punch_busy = False
         self.feedback_label.configure(
             text=f"ورود ثبت شد — {JalaliHelper.now_time_str()}",
             text_color=COLORS["success"],
@@ -292,13 +296,16 @@ class KioskWindow(ctk.CTk):
 
     def _check_out(self) -> None:
         employee = self._require_employee()
-        if employee is None:
+        if employee is None or self._punch_busy:
             return
+        self._punch_busy = True
         try:
             status = self.attendance.check_out(employee.id)
         except ValueError as exc:
             self.feedback_label.configure(text=str(exc), text_color=COLORS["danger"])
             return
+        finally:
+            self._punch_busy = False
         self.feedback_label.configure(
             text=f"خروج ثبت شد — {JalaliHelper.now_time_str()}",
             text_color=COLORS["espresso"],

@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from database.db_manager import REQUIRED_TABLES, DatabaseManager
+from database.db_manager import CORE_TABLES, DatabaseManager
 
 
 class BackupService:
@@ -56,5 +56,5 @@ class BackupService:
                 }
         except sqlite3.Error as exc:
             raise ValueError("این فایل دیتابیس معتبر نیست.") from exc
-        if not set(REQUIRED_TABLES).issubset(tables):
+        if not set(CORE_TABLES).issubset(tables):
             raise ValueError("این فایل دیتابیس برنامه نیست.")
