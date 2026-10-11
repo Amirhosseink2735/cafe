@@ -2,6 +2,6 @@
 
 APP_NAME_FA = "سامانه پرسنل کافه"
 APP_NAME_EN = "CafeManagement"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 APP_PUBLISHER = "Cafe"
 WINDOWS_SUPPORT = "Windows 10 و Windows 11 نسخه ۶۴ بیتی"

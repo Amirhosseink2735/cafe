@@ -30,4 +30,4 @@ if (-not $Iscc) {
 Write-Host "Compiling Inno Setup installer..."
 & $Iscc (Join-Path $Root "installer\installer_script.iss")
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
-Write-Host "Installer: dist\installer\CafeManagement_Setup.exe"
+Write-Host "Installer written under dist\installer\ (see OutputBaseFilename in installer_script.iss)"

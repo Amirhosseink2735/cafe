@@ -1,6 +1,6 @@
 #define MyAppName "سامانه پرسنل کافه"
 #define MyAppNameEn "CafeManagement"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "Cafe"
 #define MyAppExeName "CafeManagement.exe"
 
@@ -26,6 +26,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 UsePreviousAppDir=yes
 CloseApplications=yes
+CloseApplicationsFilter=CafeManagement.exe
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 VersionInfoVersion={#MyAppVersion}
@@ -51,5 +52,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "اجرای برنامه پس از نصب"; Flags: nowait postinstall skipifsilent
 
+; Only leftover files under {app}. Customer SQLite is in
+; {localappdata}\CafeManagement and must not be deleted on uninstall.
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"

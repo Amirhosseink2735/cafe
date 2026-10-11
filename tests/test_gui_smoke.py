@@ -28,7 +28,6 @@ def _show_and_close(window) -> None:
     window.update()
     assert window.winfo_exists()
     close_window(window)
-    window.update()
 
 
 def test_role_login_admin_kiosk_windows(db: DatabaseManager) -> None:
@@ -66,6 +65,68 @@ def test_role_login_admin_kiosk_windows(db: DatabaseManager) -> None:
     kiosk.update_idletasks()
     kiosk.refresh_staff()
     _show_and_close(kiosk)
+
+
+def test_role_buttons_destroy_window_and_keep_choice(db: DatabaseManager) -> None:
+    """Button release must actually close the home window so main() can open the next one."""
+    import tkinter as tk
+
+    from gui.role_window import RoleWindow
+
+    home = RoleWindow(db)
+    home.withdraw()
+    home.update()
+    buttons = []
+
+    def walk(widget) -> None:
+        for child in widget.winfo_children():
+            if type(child).__name__ == "CTkButton":
+                buttons.append(child)
+            walk(child)
+
+    walk(home)
+    assert len(buttons) >= 2
+    try:
+        buttons[0]._mouse_inside = True
+        buttons[0]._on_release()
+        assert home.choice == "kiosk"
+        with pytest.raises(tk.TclError):
+            home.winfo_exists()
+    finally:
+        try:
+            if home.winfo_exists():
+                home.destroy()
+        except tk.TclError:
+            pass
+
+    home = RoleWindow(db)
+    home.withdraw()
+    home.update()
+    buttons.clear()
+    walk(home)
+    try:
+        buttons[1]._mouse_inside = True
+        buttons[1]._on_release()
+        assert home.choice == "admin"
+        with pytest.raises(tk.TclError):
+            home.winfo_exists()
+    finally:
+        try:
+            if home.winfo_exists():
+                home.destroy()
+        except tk.TclError:
+            pass
+
+
+def test_packaged_self_test_runner(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CAFE_USER_DATA", str(tmp_path / "install data"))
+    from app.self_test import run_self_test
+
+    assert run_self_test() == 0
+    log = (tmp_path / "install data" / "self_test_result.txt").read_text(encoding="utf-8")
+    assert log.startswith("OK")
+    assert "excel=" in log
+    assert (tmp_path / "install data" / "self_test_report.xlsx").exists()
 
 
 def test_wrong_then_right_password(db: DatabaseManager) -> None:

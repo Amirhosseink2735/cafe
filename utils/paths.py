@@ -26,7 +26,10 @@ def runtime_root() -> Path:
 
 def user_data_dir() -> Path:
     """Writable customer data folder, outside the install directory when frozen."""
-    if getattr(sys, "frozen", False):
+    override = os.environ.get("CAFE_USER_DATA", "").strip()
+    if override:
+        folder = Path(override)
+    elif getattr(sys, "frozen", False):
         base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
         folder = base / APP_NAME_EN
     else:

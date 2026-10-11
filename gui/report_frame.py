@@ -175,28 +175,30 @@ class ReportFrame(ctk.CTkFrame):
             anchor="e",
         ).pack(fill="x", padx=14, pady=(0, 8))
 
-        header = ctk.CTkFrame(card, fg_color="transparent")
-        header.pack(fill="x", padx=10)
-        for text, weight in (
-            ("وضعیت روز", 2),
-            ("ثبت", 1),
-            ("اضافه‌کار", 1),
-            ("تعجیل", 1),
-            ("تأخیر", 1),
-            ("کارکرد", 1),
-            ("خروج", 1),
-            ("ورود", 1),
-            ("تاریخ", 2),
-        ):
-            ctk.CTkLabel(
-                header, text=text, font=app_font(11, "bold"), text_color=COLORS["muted"]
-            ).pack(side="right", padx=4, expand=True, fill="x")
+        headers = (
+            "وضعیت روز",
+            "ثبت",
+            "اضافه‌کار",
+            "تعجیل",
+            "تأخیر",
+            "کارکرد",
+            "خروج",
+            "ورود",
+            "تاریخ",
+        )
+        weights = (3, 2, 2, 2, 2, 2, 2, 2, 3)
+        table = ctk.CTkFrame(card, fg_color="transparent")
+        table.pack(fill="x", padx=8, pady=(0, 10))
+        column_count = len(headers)
+        for column in range(column_count):
+            right_index = column_count - 1 - column
+            table.grid_columnconfigure(column, weight=weights[right_index], uniform="attendance")
 
+        self._paint_attendance_row(table, 0, headers, bold=True, color=COLORS["muted"])
+        row_index = 1
         for day in item.days:
             if not day.check_in and not day.check_out and day.day_label == "عدم ثبت تردد":
                 continue
-            row = ctk.CTkFrame(card, fg_color="transparent")
-            row.pack(fill="x", padx=10, pady=1)
             values = (
                 day.day_label,
                 "دستی" if day.is_manual_entry else "عادی",
@@ -209,11 +211,27 @@ class ReportFrame(ctk.CTkFrame):
                 day.jalali_date,
             )
             color = COLORS["danger"] if day.is_incomplete else COLORS["ink"]
-            for value in values:
-                ctk.CTkLabel(
-                    row, text=value, font=app_font(11), text_color=color
-                ).pack(side="right", padx=4, expand=True, fill="x")
-        ctk.CTkFrame(card, height=8, fg_color="transparent").pack()
+            self._paint_attendance_row(table, row_index, values, color=color)
+            row_index += 1
+
+    def _paint_attendance_row(
+        self,
+        table: ctk.CTkFrame,
+        row_index: int,
+        values: tuple[str, ...],
+        *,
+        bold: bool = False,
+        color: tuple[str, str] | str,
+    ) -> None:
+        column_count = len(values)
+        for index, value in enumerate(values):
+            ctk.CTkLabel(
+                table,
+                text=value,
+                font=app_font(11, "bold" if bold else "normal"),
+                text_color=color,
+                anchor="center",
+            ).grid(row=row_index, column=column_count - 1 - index, sticky="ew", padx=2, pady=3)
 
     def _export_excel(self) -> None:
         if self._exporting:

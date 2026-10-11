@@ -9,13 +9,25 @@ from utils import paths
 from utils.app_info import APP_NAME_EN
 
 
-def test_dev_db_lives_under_project_database() -> None:
+def test_cafe_user_data_override(monkeypatch, tmp_path: Path) -> None:
+    folder = tmp_path / "custom data dir"
+    monkeypatch.setenv("CAFE_USER_DATA", str(folder))
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    data = paths.user_data_dir()
+    assert data == folder
+    assert data.exists()
+    assert paths.default_db_path() == folder / "cafe.db"
+
+
+def test_dev_db_lives_under_project_database(monkeypatch) -> None:
+    monkeypatch.delenv("CAFE_USER_DATA", raising=False)
     db_path = paths.default_db_path()
     assert db_path.name == "cafe.db"
     assert db_path.parent.name == "database"
 
 
 def test_frozen_paths_use_meipass_and_localappdata(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("CAFE_USER_DATA", raising=False)
     meipass = tmp_path / "Program Files" / "CafeManagement" / "_internal"
     (meipass / "assets" / "fonts").mkdir(parents=True)
     (meipass / "gui" / "themes").mkdir(parents=True)
@@ -39,6 +51,7 @@ def test_frozen_paths_use_meipass_and_localappdata(monkeypatch, tmp_path: Path) 
 
 
 def test_frozen_copies_legacy_db_once(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("CAFE_USER_DATA", raising=False)
     meipass = tmp_path / "bundle"
     meipass.mkdir()
     exe_dir = tmp_path / "installed app"

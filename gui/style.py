@@ -89,7 +89,12 @@ def theme_button_text(db) -> str:
 
 
 def close_window(window) -> None:
-    """Close a window without cancelling other Tk after() jobs in the app."""
+    """Close one window. Only cancel jobs this app stored on that window.
+
+    Cancelling every Tcl ``after`` (click animation, DPI, update) and then
+    destroying the root raises ``can't delete Tcl command``. That error was
+    swallowed, so the role screen stayed open and کیوسک / پنل مدیر never opened.
+    """
     try:
         window.grab_release()
     except Exception:

@@ -58,6 +58,10 @@ def run_gui(db: DatabaseManager) -> None:
 
 
 def main() -> None:
+    if "--self-test" in sys.argv:
+        from app.self_test import run_self_test
+
+        raise SystemExit(run_self_test())
     try:
         db = bootstrap()
     except (OSError, sqlite3.Error):

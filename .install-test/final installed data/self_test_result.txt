@@ -1,0 +1,8 @@
+OK
+theme=C:\Users\Arad-Shop\Desktop\projects\vibe coding\cafe\.install-test\Cafe Final App\_internal\gui\themes\cafe.json
+icon=C:\Users\Arad-Shop\Desktop\projects\vibe coding\cafe\.install-test\Cafe Final App\_internal\assets\icon.ico
+font=Vazirmatn
+auth=ok
+attendance=ok
+excel=C:\Users\Arad-Shop\Desktop\projects\vibe coding\cafe\.install-test\final installed data\self_test_report.xlsx
+gui=ok

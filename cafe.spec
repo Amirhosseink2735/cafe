@@ -24,6 +24,7 @@ a = Analysis(
         "darkdetect",
         "openpyxl",
         "et_xmlfile",
+        "app.self_test",
     ],
     hookspath=[],
     hooksconfig={},
