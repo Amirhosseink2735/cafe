@@ -5,20 +5,21 @@ from __future__ import annotations
 import customtkinter as ctk
 
 from database.db_manager import DatabaseManager
-from gui.style import COLORS, app_font, center_window
+from gui.style import COLORS, app_font, apply_window_icon, center_window, close_window, theme_button_text, toggle_appearance
 from utils.jalali_helper import JalaliHelper
 
 
 class RoleWindow(ctk.CTk):
     def __init__(self, db: DatabaseManager) -> None:
         super().__init__()
+        apply_window_icon(self)
         self.db = db
         self.choice: str | None = None
 
         self.title("سامانه پرسنل کافه")
         self.configure(fg_color=COLORS["cream"])
         self.resizable(False, False)
-        center_window(self, 720, 520)
+        center_window(self, 720, 540)
 
         card = ctk.CTkFrame(self, corner_radius=28, fg_color=COLORS["card"])
         card.pack(expand=True, fill="both", padx=36, pady=36)
@@ -57,7 +58,22 @@ class RoleWindow(ctk.CTk):
             text_color=COLORS["espresso"],
             command=lambda: self._choose("admin"),
         ).pack(fill="x")
+        self.theme_button = ctk.CTkButton(
+            buttons,
+            text=theme_button_text(self.db),
+            font=app_font(13),
+            height=40,
+            fg_color="transparent",
+            border_width=1,
+            text_color=COLORS["espresso"],
+            command=self._toggle_theme,
+        )
+        self.theme_button.pack(fill="x", pady=(16, 0))
+
+    def _toggle_theme(self) -> None:
+        toggle_appearance(self.db)
+        self.theme_button.configure(text=theme_button_text(self.db))
 
     def _choose(self, choice: str) -> None:
         self.choice = choice
-        self.destroy()
+        close_window(self)

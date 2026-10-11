@@ -26,6 +26,9 @@ def auth_service(tmp_path: Path) -> AuthService:
 
 
 def test_default_admin_password(auth_service: AuthService) -> None:
+    stored = auth_service.db.get_setting("admin_password")
+    assert stored == hash_password("admin")
+    assert stored != "admin"
     assert auth_service.verify_password("admin")
     assert not auth_service.verify_password("wrong")
 
@@ -33,6 +36,7 @@ def test_default_admin_password(auth_service: AuthService) -> None:
 def test_change_admin_password(auth_service: AuthService) -> None:
     auth_service.change_password("admin", "cafe1234")
     assert auth_service.verify_password("cafe1234")
+    assert auth_service.verify_password("  cafe1234  ")
     assert not auth_service.verify_password("admin")
     stored = auth_service.db.get_setting("admin_password")
     assert stored == hash_password("cafe1234")
@@ -87,3 +91,9 @@ def test_duplicate_personnel_code_rejected(staff_service: StaffService) -> None:
     staff_service.save_employee("نیما", "رضایی", "3003", "", "90000")
     with pytest.raises(ValueError, match="کد پرسنلی"):
         staff_service.save_employee("آرش", "کریمی", "3003", "", "80000")
+
+
+def test_persian_personnel_code_collides_with_english(staff_service: StaffService) -> None:
+    staff_service.save_employee("نیما", "رضایی", "3003", "", "90000")
+    with pytest.raises(ValueError, match="کد پرسنلی"):
+        staff_service.save_employee("آرش", "کریمی", "۳۰۰۳", "", "80000")

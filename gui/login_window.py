@@ -5,7 +5,7 @@ from __future__ import annotations
 import customtkinter as ctk
 
 from database.db_manager import DatabaseManager
-from gui.style import COLORS, app_font, center_window
+from gui.style import COLORS, app_font, apply_window_icon, center_window, close_window
 from services.auth_service import AuthService
 from utils.jalali_helper import JalaliHelper
 
@@ -13,6 +13,7 @@ from utils.jalali_helper import JalaliHelper
 class LoginWindow(ctk.CTk):
     def __init__(self, db: DatabaseManager) -> None:
         super().__init__()
+        apply_window_icon(self)
         self.db = db
         self.auth = AuthService(db)
         self.authenticated = False
@@ -107,7 +108,7 @@ class LoginWindow(ctk.CTk):
         password = self.password_entry.get()
         if self.auth.verify_password(password):
             self.authenticated = True
-            self.destroy()
+            close_window(self)
             return
         self.error_label.configure(text="رمز عبور نادرست است.")
         self.password_entry.delete(0, "end")

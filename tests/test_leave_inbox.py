@@ -85,7 +85,14 @@ def test_cannot_review_twice(leave_setup) -> None:
 def test_filter_splits_statuses(leave_setup) -> None:
     leave, employee_id = leave_setup
     first = _submit(leave, employee_id, "اول")
-    second = _submit(leave, employee_id, "دوم")
+    other_day = JalaliHelper.shift_date(JalaliHelper.today_str(), 1)
+    second = leave.submit_request(
+        employee_id=employee_id,
+        leave_type=LEAVE_DAILY,
+        reason="دوم",
+        start_date=other_day,
+        end_date=other_day,
+    )
     leave.approve(first, "تایید اول")
     assert len(leave.list_requests(STATUS_PENDING)) == 1
     assert leave.list_requests(STATUS_PENDING)[0].id == second

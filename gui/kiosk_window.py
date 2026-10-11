@@ -8,7 +8,7 @@ import customtkinter as ctk
 
 from database.db_manager import DatabaseManager
 from gui.leave_dialog import LeaveRequestDialog
-from gui.style import COLORS, app_font, center_window, initials_of
+from gui.style import COLORS, app_font, apply_window_icon, center_window, close_window, initials_of
 from services.attendance_service import AttendanceService
 from services.leave_service import LeaveService
 from services.staff_service import EmployeeRecord, StaffService
@@ -18,6 +18,7 @@ from utils.jalali_helper import JalaliHelper
 class KioskWindow(ctk.CTk):
     def __init__(self, db: DatabaseManager) -> None:
         super().__init__()
+        apply_window_icon(self)
         self.db = db
         self.staff = StaffService(db)
         self.attendance = AttendanceService(db)
@@ -38,7 +39,7 @@ class KioskWindow(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_header(self) -> None:
-        header = ctk.CTkFrame(self, height=110, corner_radius=0, fg_color=COLORS["espresso"])
+        header = ctk.CTkFrame(self, height=110, corner_radius=0, fg_color=COLORS["header"])
         header.pack(fill="x")
         header.pack_propagate(False)
 
@@ -48,7 +49,7 @@ class KioskWindow(ctk.CTk):
             width=110,
             height=44,
             fg_color=COLORS["espresso_dark"],
-            hover_color="#4A3224",
+            hover_color=COLORS["espresso_dark"],
             command=self._on_close,
         ).pack(side="left", padx=20, pady=32)
 
@@ -58,7 +59,7 @@ class KioskWindow(ctk.CTk):
             clock_box,
             text="",
             font=app_font(36, "bold"),
-            text_color="#FFF8F1",
+            text_color=COLORS["on_espresso"],
         )
         self.time_label.pack(anchor="e")
         self.date_label = ctk.CTkLabel(
@@ -73,7 +74,7 @@ class KioskWindow(ctk.CTk):
             header,
             text="کیوسک پرسنل",
             font=app_font(22, "bold"),
-            text_color="#FFF8F1",
+            text_color=COLORS["on_espresso"],
         ).pack(side="right", padx=12)
 
     def _build_body(self) -> None:
@@ -181,6 +182,8 @@ class KioskWindow(ctk.CTk):
         ).pack(fill="x")
 
     def _tick_clock(self) -> None:
+        if not self.winfo_exists():
+            return
         now = JalaliHelper.now()
         self.time_label.configure(text=now.strftime("%H:%M:%S"))
         self.date_label.configure(text=now.strftime("%Y/%m/%d"))
@@ -225,7 +228,7 @@ class KioskWindow(ctk.CTk):
             width=220,
             height=110,
             fg_color=COLORS["espresso"] if selected else COLORS["cream"],
-            text_color="#FFF8F1" if selected else COLORS["ink"],
+            text_color=COLORS["on_espresso"] if selected else COLORS["ink"],
             hover_color=COLORS["espresso_dark"] if selected else COLORS["ghost"],
             command=lambda emp_id=employee.id: self._select_employee(emp_id),
         )
@@ -318,7 +321,4 @@ class KioskWindow(ctk.CTk):
             )
 
     def _on_close(self) -> None:
-        if self._clock_job is not None:
-            self.after_cancel(self._clock_job)
-            self._clock_job = None
-        self.destroy()
+        close_window(self)

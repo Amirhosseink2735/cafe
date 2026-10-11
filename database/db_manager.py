@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import Optional
 
 from utils.jalali_helper import JalaliHelper
+from utils.paths import default_db_path, runtime_root
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DB_PATH = PROJECT_ROOT / "database" / "cafe.db"
+PROJECT_ROOT = runtime_root()
+DEFAULT_DB_PATH = default_db_path()
 
 SCHEMA_STATEMENTS: tuple[str, ...] = (
     """
@@ -81,6 +82,10 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         key TEXT PRIMARY KEY,
         value TEXT
     )
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_attendances_employee_date
+    ON attendances(employee_id, jalali_date)
     """,
 )
 
@@ -287,6 +292,26 @@ class DatabaseManager:
             )
             connection.commit()
 
+    def list_open_attendances(self) -> list[sqlite3.Row]:
+        with self.connect() as connection:
+            return connection.execute(
+                """
+                SELECT * FROM attendances
+                WHERE check_in IS NOT NULL
+                  AND check_out IS NULL
+                  AND status = 'open'
+                ORDER BY jalali_date, id
+                """
+            ).fetchall()
+
+    def set_attendance_status(self, attendance_id: int, status: str) -> None:
+        with self.connect() as connection:
+            connection.execute(
+                "UPDATE attendances SET status = ? WHERE id = ?",
+                (status, attendance_id),
+            )
+            connection.commit()
+
     def get_open_attendance(self, employee_id: int, jalali_date: str) -> Optional[sqlite3.Row]:
         with self.connect() as connection:
             return connection.execute(
@@ -321,24 +346,27 @@ class DatabaseManager:
         is_manual_entry: bool = False,
     ) -> int:
         with self.connect() as connection:
-            cursor = connection.execute(
-                """
-                INSERT INTO attendances (
-                    employee_id, jalali_date, check_in, check_out,
-                    is_manual_entry, status, delay_minutes,
-                    early_leave_minutes, overtime_minutes
-                ) VALUES (?, ?, ?, NULL, ?, ?, ?, 0, 0)
-                """,
-                (
-                    employee_id,
-                    jalali_date,
-                    check_in,
-                    1 if is_manual_entry else 0,
-                    status,
-                    delay_minutes,
-                ),
-            )
-            connection.commit()
+            try:
+                cursor = connection.execute(
+                    """
+                    INSERT INTO attendances (
+                        employee_id, jalali_date, check_in, check_out,
+                        is_manual_entry, status, delay_minutes,
+                        early_leave_minutes, overtime_minutes
+                    ) VALUES (?, ?, ?, NULL, ?, ?, ?, 0, 0)
+                    """,
+                    (
+                        employee_id,
+                        jalali_date,
+                        check_in,
+                        1 if is_manual_entry else 0,
+                        status,
+                        delay_minutes,
+                    ),
+                )
+                connection.commit()
+            except sqlite3.IntegrityError as exc:
+                raise ValueError("برای این تاریخ قبلاً تردد ثبت شده است.") from exc
             return int(cursor.lastrowid or 0)
 
     def complete_attendance(
@@ -347,18 +375,108 @@ class DatabaseManager:
         check_out: str,
         early_leave_minutes: int = 0,
         overtime_minutes: int = 0,
+        is_manual_entry: bool = False,
     ) -> None:
         with self.connect() as connection:
             connection.execute(
                 """
                 UPDATE attendances
                 SET check_out = ?, status = 'completed',
-                    early_leave_minutes = ?, overtime_minutes = ?
+                    early_leave_minutes = ?, overtime_minutes = ?,
+                    is_manual_entry = CASE WHEN ? = 1 THEN 1 ELSE is_manual_entry END
                 WHERE id = ?
                 """,
-                (check_out, early_leave_minutes, overtime_minutes, attendance_id),
+                (
+                    check_out,
+                    early_leave_minutes,
+                    overtime_minutes,
+                    1 if is_manual_entry else 0,
+                    attendance_id,
+                ),
             )
             connection.commit()
+
+    def get_attendance_by_id(self, attendance_id: int) -> Optional[sqlite3.Row]:
+        with self.connect() as connection:
+            return connection.execute(
+                """
+                SELECT a.*, e.full_name, e.personnel_code
+                FROM attendances a
+                JOIN employees e ON e.id = a.employee_id
+                WHERE a.id = ?
+                """,
+                (attendance_id,),
+            ).fetchone()
+
+    def list_incomplete_attendances(self) -> list[sqlite3.Row]:
+        with self.connect() as connection:
+            return connection.execute(
+                """
+                SELECT
+                    a.*,
+                    e.full_name,
+                    e.personnel_code
+                FROM attendances a
+                JOIN employees e ON e.id = a.employee_id
+                WHERE a.check_in IS NOT NULL
+                  AND a.check_out IS NULL
+                  AND a.status IN ('open', 'missed_checkout')
+                ORDER BY a.jalali_date DESC, a.id DESC
+                """
+            ).fetchall()
+
+    def mark_missed_checkouts(self, today: str) -> int:
+        with self.connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE attendances
+                SET status = 'missed_checkout'
+                WHERE check_in IS NOT NULL
+                  AND check_out IS NULL
+                  AND status = 'open'
+                  AND jalali_date < ?
+                """,
+                (today,),
+            )
+            connection.commit()
+            return int(cursor.rowcount or 0)
+
+    def insert_manual_attendance(
+        self,
+        employee_id: int,
+        jalali_date: str,
+        check_in: Optional[str],
+        check_out: Optional[str],
+        status: str,
+        delay_minutes: int,
+        early_leave_minutes: int,
+        overtime_minutes: int,
+    ) -> int:
+        with self.connect() as connection:
+            try:
+                cursor = connection.execute(
+                    """
+                    INSERT INTO attendances (
+                        employee_id, jalali_date, check_in, check_out,
+                        is_manual_entry, status, delay_minutes,
+                        early_leave_minutes, overtime_minutes
+                    ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
+                    """,
+                    (
+                        employee_id,
+                        jalali_date,
+                        check_in,
+                        check_out,
+                        status,
+                        delay_minutes,
+                        early_leave_minutes,
+                        overtime_minutes,
+                    ),
+                )
+                connection.commit()
+            except sqlite3.IntegrityError as exc:
+                raise ValueError("برای این تاریخ قبلاً تردد ثبت شده است.") from exc
+            return int(cursor.lastrowid or 0)
 
     def insert_leave_request(
         self,
@@ -453,6 +571,98 @@ class DatabaseManager:
             )
             connection.commit()
 
+    def insert_adjustment(
+        self,
+        employee_id: int,
+        jalali_date: str,
+        adjustment_type: str,
+        amount: float,
+        reason: str,
+    ) -> int:
+        with self.connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO adjustments (employee_id, jalali_date, type, amount, reason)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (employee_id, jalali_date, adjustment_type, amount, reason),
+            )
+            connection.commit()
+            return int(cursor.lastrowid or 0)
+
+    def list_adjustments(
+        self,
+        start_date: str,
+        end_date: str,
+        employee_id: Optional[int] = None,
+    ) -> list[sqlite3.Row]:
+        query = """
+            SELECT a.*, e.full_name, e.personnel_code
+            FROM adjustments a
+            JOIN employees e ON e.id = a.employee_id
+            WHERE a.jalali_date >= ? AND a.jalali_date <= ?
+        """
+        params: list = [start_date, end_date]
+        if employee_id is not None:
+            query += " AND a.employee_id = ?"
+            params.append(employee_id)
+        query += " ORDER BY a.jalali_date DESC, a.id DESC"
+        with self.connect() as connection:
+            return connection.execute(query, params).fetchall()
+
+    def list_attendances_in_range(
+        self,
+        start_date: str,
+        end_date: str,
+        employee_id: Optional[int] = None,
+    ) -> list[sqlite3.Row]:
+        query = """
+            SELECT * FROM attendances
+            WHERE jalali_date >= ? AND jalali_date <= ?
+        """
+        params: list = [start_date, end_date]
+        if employee_id is not None:
+            query += " AND employee_id = ?"
+            params.append(employee_id)
+        query += " ORDER BY jalali_date, id"
+        with self.connect() as connection:
+            return connection.execute(query, params).fetchall()
+
+    def list_completed_attendances(
+        self,
+        start_date: str,
+        end_date: str,
+        employee_id: Optional[int] = None,
+    ) -> list[sqlite3.Row]:
+        query = """
+            SELECT * FROM attendances
+            WHERE status = 'completed'
+              AND jalali_date >= ? AND jalali_date <= ?
+        """
+        params: list = [start_date, end_date]
+        if employee_id is not None:
+            query += " AND employee_id = ?"
+            params.append(employee_id)
+        query += " ORDER BY jalali_date, id"
+        with self.connect() as connection:
+            return connection.execute(query, params).fetchall()
+
+    def list_approved_daily_leaves(
+        self, start_date: str, end_date: str
+    ) -> list[sqlite3.Row]:
+        with self.connect() as connection:
+            return connection.execute(
+                """
+                SELECT employee_id, start_date, end_date
+                FROM leave_requests
+                WHERE status = 'approved'
+                  AND leave_type = 'daily'
+                  AND start_date <= ?
+                  AND IFNULL(end_date, start_date) >= ?
+                """,
+                (end_date, start_date),
+            ).fetchall()
+
     def _column_names(self, connection: sqlite3.Connection, table: str) -> set[str]:
         rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
         return {row[1] for row in rows}
@@ -463,11 +673,43 @@ class DatabaseManager:
             connection.execute("ALTER TABLE leave_requests ADD COLUMN admin_comment TEXT")
         if "reviewed_at" not in columns:
             connection.execute("ALTER TABLE leave_requests ADD COLUMN reviewed_at TEXT")
+        try:
+            connection.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_attendances_employee_date
+                ON attendances(employee_id, jalali_date)
+                """
+            )
+        except sqlite3.IntegrityError:
+            pass
 
     def _seed_default_settings(self, connection: sqlite3.Connection) -> None:
+        from services.auth_service import (
+            ADMIN_PASSWORD_KEY,
+            DEFAULT_PASSWORD,
+            hash_password,
+        )
+
+        hashed = hash_password(DEFAULT_PASSWORD)
         connection.execute(
             """
             INSERT OR IGNORE INTO settings (key, value)
-            VALUES ('admin_password', 'admin')
+            VALUES (?, ?)
+            """,
+            (ADMIN_PASSWORD_KEY, hashed),
+        )
+        stored = connection.execute(
+            "SELECT value FROM settings WHERE key = ?",
+            (ADMIN_PASSWORD_KEY,),
+        ).fetchone()
+        if stored is not None and stored["value"] == DEFAULT_PASSWORD:
+            connection.execute(
+                "UPDATE settings SET value = ? WHERE key = ?",
+                (hashed, ADMIN_PASSWORD_KEY),
+            )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO settings (key, value)
+            VALUES ('appearance_mode', 'light')
             """
         )

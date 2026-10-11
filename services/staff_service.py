@@ -6,7 +6,14 @@ from dataclasses import dataclass
 from typing import Optional
 
 from database.db_manager import DatabaseManager
-from utils.text_utils import join_full_name, normalize_time, parse_hourly_rate, parse_int, split_full_name
+from utils.text_utils import (
+    join_full_name,
+    normalize_time,
+    parse_hourly_rate,
+    parse_int,
+    split_full_name,
+    to_english_digits,
+)
 
 
 @dataclass
@@ -55,7 +62,7 @@ class StaffService:
     ) -> int:
         first_name = first_name.strip()
         last_name = last_name.strip()
-        personnel_code = personnel_code.strip()
+        personnel_code = to_english_digits(personnel_code)
         phone = phone.strip()
         if not first_name:
             raise ValueError("نام را وارد کنید.")

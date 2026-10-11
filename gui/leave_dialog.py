@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-from gui.style import COLORS, app_font, center_window
+from gui.style import COLORS, app_font, center_window, close_window
 from services.leave_service import LEAVE_DAILY, LEAVE_HOURLY, LeaveService
 from utils.jalali_helper import JalaliHelper
 
@@ -115,4 +115,4 @@ class LeaveRequestDialog(ctk.CTkToplevel):
             self.error_label.configure(text=str(exc))
             return
         self.submitted = True
-        self.destroy()
+        close_window(self)

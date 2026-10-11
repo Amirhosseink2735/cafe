@@ -139,17 +139,17 @@
   },
   "CTkFont": {
     "macOS": {
-      "family": "Tahoma",
+      "family": "Vazirmatn",
       "size": 13,
       "weight": "normal"
     },
     "Windows": {
-      "family": "Segoe UI",
+      "family": "Vazirmatn",
       "size": 13,
       "weight": "normal"
     },
     "Linux": {
-      "family": "Tahoma",
+      "family": "Vazirmatn",
       "size": 13,
       "weight": "normal"
     }

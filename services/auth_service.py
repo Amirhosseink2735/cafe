@@ -19,6 +19,7 @@ class AuthService:
         self.db = db
 
     def verify_password(self, password: str) -> bool:
+        password = password.strip()
         stored = self.db.get_setting(ADMIN_PASSWORD_KEY) or DEFAULT_PASSWORD
         if stored == hash_password(password):
             return True
@@ -28,10 +29,11 @@ class AuthService:
         return False
 
     def change_password(self, current_password: str, new_password: str) -> None:
-        if not new_password.strip():
+        new_password = new_password.strip()
+        if not new_password:
             raise ValueError("رمز جدید نمی‌تواند خالی باشد.")
-        if len(new_password.strip()) < 4:
+        if len(new_password) < 4:
             raise ValueError("رمز جدید باید حداقل ۴ کاراکتر باشد.")
         if not self.verify_password(current_password):
             raise ValueError("رمز فعلی نادرست است.")
-        self.db.set_setting(ADMIN_PASSWORD_KEY, hash_password(new_password.strip()))
+        self.db.set_setting(ADMIN_PASSWORD_KEY, hash_password(new_password))

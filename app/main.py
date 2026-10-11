@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -23,8 +24,21 @@ def bootstrap() -> DatabaseManager:
     return db
 
 
+def _show_startup_error(message: str) -> None:
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror("خطا", message)
+        root.destroy()
+    except Exception:
+        print(message, file=sys.stderr)
+
+
 def run_gui(db: DatabaseManager) -> None:
-    apply_theme()
+    apply_theme(db.get_setting("appearance_mode") or "light")
     while True:
         home = RoleWindow(db)
         home.mainloop()
@@ -44,7 +58,13 @@ def run_gui(db: DatabaseManager) -> None:
 
 
 def main() -> None:
-    db = bootstrap()
+    try:
+        db = bootstrap()
+    except (OSError, sqlite3.Error):
+        _show_startup_error(
+            "پایگاه داده قابل استفاده نیست. مسیر پرونده را بررسی کنید یا از نسخه پشتیبان بازیابی کنید."
+        )
+        return
     run_gui(db)
 
 

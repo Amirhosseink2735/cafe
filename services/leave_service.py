@@ -7,7 +7,7 @@ from typing import Optional
 
 from database.db_manager import DatabaseManager
 from utils.jalali_helper import JalaliHelper
-from utils.text_utils import normalize_jalali_date, normalize_time
+from utils.text_utils import normalize_jalali_date, normalize_time, time_to_minutes
 
 LEAVE_DAILY = "daily"
 LEAVE_HOURLY = "hourly"
@@ -82,8 +82,11 @@ class LeaveService:
         start_time: str = "",
         end_time: str = "",
     ) -> int:
-        if self.db.get_employee_by_id(employee_id) is None:
+        employee = self.db.get_employee_by_id(employee_id)
+        if employee is None:
             raise ValueError("ابتدا پرسنل را انتخاب کنید.")
+        if not employee["is_active"]:
+            raise ValueError("این پرسنل غیرفعال است.")
 
         leave_type = leave_type.strip()
         if leave_type not in {LEAVE_DAILY, LEAVE_HOURLY}:
@@ -108,6 +111,10 @@ class LeaveService:
             if stored_end_time <= stored_start_time:
                 raise ValueError("ساعت پایان مرخصی باید بعد از ساعت شروع باشد.")
             stored_end = start
+
+        self._assert_no_overlap(
+            employee_id, leave_type, start, stored_end, stored_start_time, stored_end_time
+        )
 
         return self.db.insert_leave_request(
             employee_id=employee_id,
@@ -141,12 +148,54 @@ class LeaveService:
             raise ValueError("درخواست مرخصی پیدا نشد.")
         if row["status"] != STATUS_PENDING:
             raise ValueError("این درخواست قبلاً بررسی شده است.")
+        if status == STATUS_APPROVED:
+            self._assert_no_overlap(
+                row["employee_id"],
+                row["leave_type"],
+                row["start_date"],
+                row["end_date"] or row["start_date"],
+                row["start_time"],
+                row["end_time"],
+                ignore_id=request_id,
+            )
         self.db.update_leave_status(
             request_id=request_id,
             status=status,
             admin_comment=comment,
             reviewed_at=JalaliHelper.now_datetime_str(),
         )
+
+    def _assert_no_overlap(
+        self,
+        employee_id: int,
+        leave_type: str,
+        start: str,
+        end: Optional[str],
+        start_time: Optional[str],
+        end_time: Optional[str],
+        ignore_id: Optional[int] = None,
+    ) -> None:
+        end = end or start
+        for row in self.db.list_leave_requests():
+            if row["employee_id"] != employee_id:
+                continue
+            if ignore_id is not None and row["id"] == ignore_id:
+                continue
+            if row["status"] not in {STATUS_PENDING, STATUS_APPROVED}:
+                continue
+            if leave_type == LEAVE_DAILY and row["leave_type"] == LEAVE_DAILY:
+                other_end = row["end_date"] or row["start_date"]
+                if start <= other_end and end >= row["start_date"]:
+                    raise ValueError("برای این بازه قبلاً مرخصی روزانه ثبت شده است.")
+            if leave_type == LEAVE_HOURLY and row["leave_type"] == LEAVE_HOURLY:
+                if row["start_date"] != start or not start_time or not end_time:
+                    continue
+                if not row["start_time"] or not row["end_time"]:
+                    continue
+                a1, a2 = time_to_minutes(start_time), time_to_minutes(end_time)
+                b1, b2 = time_to_minutes(row["start_time"]), time_to_minutes(row["end_time"])
+                if a1 < b2 and b1 < a2:
+                    raise ValueError("این ساعت با مرخصی ساعتی دیگری تداخل دارد.")
 
     def _to_record(self, row) -> LeaveRequestRecord:
         return LeaveRequestRecord(

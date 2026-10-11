@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 from typing import Optional
 
 import customtkinter as ctk
 
 from database.db_manager import DatabaseManager
+from gui.attendance_inbox import AttendanceInboxFrame
 from gui.leave_inbox import LeaveInboxFrame
 from gui.password_dialog import ChangePasswordDialog
-from gui.style import COLORS, app_font, center_window, initials_of
+from gui.payroll_frame import PayrollFrame
+from gui.report_frame import ReportFrame
+from gui.style import COLORS, app_font, apply_window_icon, center_window, close_window, initials_of, theme_button_text, toggle_appearance
+from services.attendance_service import AttendanceService
 from services.auth_service import AuthService
 from services.leave_service import LeaveService
+from services.backup_service import BackupService
+from services.payroll_service import PayrollService
+from services.report_service import ReportService
 from services.staff_service import EmployeeRecord, StaffService
 from utils.jalali_helper import JalaliHelper
 
@@ -20,10 +27,15 @@ from utils.jalali_helper import JalaliHelper
 class AdminWindow(ctk.CTk):
     def __init__(self, db: DatabaseManager) -> None:
         super().__init__()
+        apply_window_icon(self)
         self.db = db
         self.auth = AuthService(db)
         self.staff = StaffService(db)
         self.leave_service = LeaveService(db)
+        self.attendance_service = AttendanceService(db)
+        self.payroll_service = PayrollService(db)
+        self.report_service = ReportService(db)
+        self.backup_service = BackupService(db)
         self.logout_requested = False
         self.selected_employee_id: Optional[int] = None
 
@@ -36,9 +48,10 @@ class AdminWindow(ctk.CTk):
         self._build_body()
         self.refresh_list()
         self._sync_leave_badge()
+        self._sync_attendance_badge()
 
     def _build_header(self) -> None:
-        header = ctk.CTkFrame(self, height=88, corner_radius=0, fg_color=COLORS["espresso"])
+        header = ctk.CTkFrame(self, height=88, corner_radius=0, fg_color=COLORS["header"])
         header.pack(fill="x")
         header.pack_propagate(False)
 
@@ -48,7 +61,7 @@ class AdminWindow(ctk.CTk):
             brand,
             text="☕  مدیریت پرسنل کافه",
             font=app_font(22, "bold"),
-            text_color="#FFF8F1",
+            text_color=COLORS["on_espresso"],
         ).pack(anchor="e")
         ctk.CTkLabel(
             brand,
@@ -65,8 +78,8 @@ class AdminWindow(ctk.CTk):
             width=96,
             height=38,
             fg_color=COLORS["espresso_dark"],
-            hover_color="#4A3224",
-            text_color="#FFF8F1",
+            hover_color=COLORS["espresso_dark"],
+            text_color=COLORS["on_espresso"],
             command=self._logout,
         ).pack(side="left", padx=(0, 8), pady=24)
         ctk.CTkButton(
@@ -74,32 +87,73 @@ class AdminWindow(ctk.CTk):
             text="تغییر رمز",
             width=120,
             height=38,
-            fg_color=COLORS["caramel"],
-            hover_color="#D4B98A",
-            text_color=COLORS["espresso"],
+            fg_color=COLORS["gold"],
+            hover_color=COLORS["caramel"],
+            text_color=COLORS["ink"],
             command=self._change_password,
         ).pack(side="left", pady=24)
+        self.theme_button = ctk.CTkButton(
+            actions,
+            text=theme_button_text(self.db),
+            width=100,
+            height=38,
+            fg_color=COLORS["espresso_dark"],
+            hover_color=COLORS["espresso_dark"],
+            text_color=COLORS["on_espresso"],
+            command=self._toggle_theme,
+        )
+        self.theme_button.pack(side="left", padx=(8, 0), pady=24)
+        ctk.CTkButton(
+            actions,
+            text="پشتیبان",
+            width=90,
+            height=38,
+            fg_color=COLORS["espresso_dark"],
+            hover_color=COLORS["espresso_dark"],
+            text_color=COLORS["on_espresso"],
+            command=self._backup,
+        ).pack(side="left", padx=(8, 0), pady=24)
+        ctk.CTkButton(
+            actions,
+            text="بازیابی",
+            width=90,
+            height=38,
+            fg_color=COLORS["espresso_dark"],
+            hover_color=COLORS["espresso_dark"],
+            text_color=COLORS["on_espresso"],
+            command=self._restore,
+        ).pack(side="left", padx=(8, 0), pady=24)
 
         self.status_label = ctk.CTkLabel(
             header,
             text="",
             font=app_font(12),
-            text_color="#E8F6EE",
+            text_color=COLORS["on_espresso"],
         )
         self.status_label.pack(side="left", padx=12)
         self.leave_badge = ctk.CTkLabel(
             header,
             text="",
             font=app_font(12, "bold"),
-            text_color=COLORS["caramel"],
+            text_color=COLORS["gold"],
         )
         self.leave_badge.pack(side="left", padx=8)
+        self.attendance_badge = ctk.CTkLabel(
+            header,
+            text="",
+            font=app_font(12, "bold"),
+            text_color=COLORS["on_espresso"],
+        )
+        self.attendance_badge.pack(side="left", padx=8)
 
     def _build_body(self) -> None:
         self.tabs = ctk.CTkTabview(self, command=self._on_tab_change)
         self.tabs.pack(expand=True, fill="both", padx=20, pady=18)
         staff_tab = self.tabs.add("پرسنل و شیفت")
         leave_tab = self.tabs.add("کارتابل مرخصی")
+        attendance_tab = self.tabs.add("اصلاح دستی ترددها")
+        payroll_tab = self.tabs.add("حقوق و کارکرد")
+        report_tab = self.tabs.add("گزارش ماهانه تردد")
 
         staff_tab.grid_columnconfigure(0, weight=3)
         staff_tab.grid_columnconfigure(1, weight=2)
@@ -114,10 +168,30 @@ class AdminWindow(ctk.CTk):
         )
         self.leave_inbox.pack(expand=True, fill="both")
 
+        self.attendance_inbox = AttendanceInboxFrame(
+            attendance_tab,
+            self.attendance_service,
+            self.staff,
+            on_changed=self._sync_attendance_badge,
+        )
+        self.attendance_inbox.pack(expand=True, fill="both")
+
+        self.payroll_frame = PayrollFrame(payroll_tab, self.payroll_service, self.staff)
+        self.payroll_frame.pack(expand=True, fill="both")
+
+        self.report_frame = ReportFrame(report_tab, self.report_service, self.staff)
+        self.report_frame.pack(expand=True, fill="both")
+
     def _on_tab_change(self, _value: str | None = None) -> None:
         selected = _value or self.tabs.get()
         if selected == "کارتابل مرخصی":
             self.leave_inbox.refresh()
+        elif selected == "اصلاح دستی ترددها":
+            self.attendance_inbox.refresh()
+        elif selected == "حقوق و کارکرد":
+            self.payroll_frame.refresh()
+        elif selected == "گزارش ماهانه تردد":
+            self.report_frame.refresh()
 
     def _sync_leave_badge(self) -> None:
         pending = self.leave_service.pending_count()
@@ -125,6 +199,13 @@ class AdminWindow(ctk.CTk):
             self.leave_badge.configure(text=f"{pending} مرخصی در انتظار")
         else:
             self.leave_badge.configure(text="")
+
+    def _sync_attendance_badge(self) -> None:
+        incomplete = self.attendance_service.incomplete_count()
+        if incomplete:
+            self.attendance_badge.configure(text=f"{incomplete} تردد بلاتکلیف")
+        else:
+            self.attendance_badge.configure(text="")
 
     def _build_list_panel(self, parent: ctk.CTkFrame) -> None:
         panel = ctk.CTkFrame(parent, corner_radius=22, fg_color=COLORS["card"])
@@ -284,7 +365,7 @@ class AdminWindow(ctk.CTk):
         card = ctk.CTkFrame(
             self.list_frame,
             corner_radius=18,
-            fg_color=COLORS["cream"] if not selected else "#F7EFE6",
+            fg_color=COLORS["selected"] if selected else COLORS["cream"],
             border_width=2 if selected else 0,
             border_color=COLORS["caramel"],
         )
@@ -300,7 +381,7 @@ class AdminWindow(ctk.CTk):
             avatar,
             text=initials_of(employee.full_name),
             font=app_font(14, "bold"),
-            text_color="#FFF8F1",
+            text_color=COLORS["on_espresso"],
         ).pack(expand=True)
 
         identity = ctk.CTkFrame(top, fg_color="transparent")
@@ -381,7 +462,17 @@ class AdminWindow(ctk.CTk):
 
     def _flash_status(self, text: str) -> None:
         self.status_label.configure(text=text)
-        self.after(3500, lambda: self.status_label.configure(text=""))
+
+        def _clear() -> None:
+            if self.winfo_exists():
+                self.status_label.configure(text="")
+
+        if getattr(self, "_status_job", None):
+            try:
+                self.after_cancel(self._status_job)
+            except Exception:
+                pass
+        self._status_job = self.after(3500, _clear)
 
     def _load_employee(self, employee_id: int) -> None:
         employee = self.staff.get_employee(employee_id)
@@ -478,12 +569,57 @@ class AdminWindow(ctk.CTk):
         self.selected_label.configure(text="کارمندی انتخاب نشده است.")
         self.refresh_list()
 
+    def _backup(self) -> None:
+        today = JalaliHelper.today_str().replace("/", "-")
+        path = filedialog.asksaveasfilename(
+            title="ذخیره نسخه پشتیبان",
+            defaultextension=".db",
+            filetypes=[("SQLite", "*.db"), ("همه فایل‌ها", "*.*")],
+            initialfile=f"cafe_backup_{today}.db",
+        )
+        if not path:
+            return
+        try:
+            saved = self.backup_service.backup_to(path)
+        except ValueError as exc:
+            messagebox.showerror("خطا", str(exc))
+            return
+        messagebox.showinfo("موفق", f"نسخه پشتیبان ذخیره شد:\n{saved}")
+
+    def _restore(self) -> None:
+        if not messagebox.askyesno(
+            "بازیابی",
+            "بازیابی، اطلاعات فعلی را با فایل پشتیبان جایگزین می‌کند. ادامه می‌دهید؟",
+        ):
+            return
+        path = filedialog.askopenfilename(
+            title="انتخاب فایل پشتیبان",
+            filetypes=[("SQLite", "*.db"), ("همه فایل‌ها", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            self.backup_service.restore_from(path)
+        except ValueError as exc:
+            messagebox.showerror("خطا", str(exc))
+            return
+        messagebox.showinfo("موفق", "اطلاعات بازیابی شد. لطفاً صفحه را یک‌بار ببندید و دوباره باز کنید.")
+        self.refresh_list()
+        self.leave_inbox.refresh()
+        self.attendance_inbox.refresh()
+        self.payroll_frame.refresh()
+        self.report_frame.refresh()
+
     def _change_password(self) -> None:
         ChangePasswordDialog(self, self.auth)
 
+    def _toggle_theme(self) -> None:
+        toggle_appearance(self.db)
+        self.theme_button.configure(text=theme_button_text(self.db))
+
     def _logout(self) -> None:
         self.logout_requested = True
-        self.destroy()
+        close_window(self)
 
     @staticmethod
     def _set_entry(entry: ctk.CTkEntry, value: str) -> None:

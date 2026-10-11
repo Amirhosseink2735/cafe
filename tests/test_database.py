@@ -42,6 +42,18 @@ def test_persian_employee_name_roundtrip(tmp_path: Path) -> None:
     assert row["created_at"] == created_at
 
 
+def test_duplicate_attendance_same_day_rejected(tmp_path: Path) -> None:
+    db = DatabaseManager(tmp_path / "cafe.db")
+    db.initialize()
+    employee_id = db.insert_employee("علی محمدی", "1001")
+    db.insert_attendance(employee_id, JalaliHelper.today_str(), "08:00:00")
+    try:
+        db.insert_attendance(employee_id, JalaliHelper.today_str(), "09:00:00")
+        raise AssertionError("expected duplicate attendance to fail")
+    except ValueError as exc:
+        assert "تردد" in str(exc)
+
+
 def test_jalali_today_format() -> None:
     today = JalaliHelper.today_str()
     parts = today.split("/")

@@ -6,7 +6,7 @@ from typing import Callable, Optional
 
 import customtkinter as ctk
 
-from gui.style import COLORS, app_font, center_window
+from gui.style import COLORS, app_font, center_window, close_window
 from services.leave_service import (
     FILTER_MAP,
     STATUS_APPROVED,
@@ -60,7 +60,7 @@ class LeaveDecisionDialog(ctk.CTkToplevel):
             return
         self.comment = text
         self.confirmed = True
-        self.destroy()
+        close_window(self)
 
 
 class LeaveInboxFrame(ctk.CTkFrame):
@@ -124,10 +124,9 @@ class LeaveInboxFrame(ctk.CTkFrame):
                 font=app_font(15),
                 text_color=COLORS["muted"],
             ).pack(pady=40)
-            return
-
-        for item in requests:
-            self._add_card(item)
+        else:
+            for item in requests:
+                self._add_card(item)
 
         if self.on_changed:
             self.on_changed()
@@ -136,7 +135,7 @@ class LeaveInboxFrame(ctk.CTkFrame):
         colors = {
             STATUS_PENDING: (COLORS["pill_off_bg"], COLORS["pill_off_fg"]),
             STATUS_APPROVED: (COLORS["pill_ok_bg"], COLORS["pill_ok_fg"]),
-            STATUS_REJECTED: ("#F3E6E3", COLORS["danger"]),
+            STATUS_REJECTED: (COLORS["pill_off_bg"], COLORS["danger"]),
         }
         pill_bg, pill_fg = colors.get(item.status, (COLORS["ghost"], COLORS["ink"]))
 

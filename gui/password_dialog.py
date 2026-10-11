@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-from gui.style import COLORS, app_font, center_window
+from gui.style import COLORS, app_font, center_window, close_window
 from services.auth_service import AuthService
 
 
@@ -78,4 +78,4 @@ class ChangePasswordDialog(ctk.CTkToplevel):
         except ValueError as exc:
             self.error_label.configure(text=str(exc))
             return
-        self.destroy()
+        close_window(self)
